@@ -1,3 +1,8 @@
+---
+output: 
+  html_document: 
+    toc: yes
+---
 Generating, reading and extracting data
 ================
 George Ngugi

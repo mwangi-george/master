@@ -44,8 +44,8 @@ str(titanic)
     ##  $ Survived: int  1 0 0 0 1 1 1 0 1 0 ...
     ##  $ SexCode : int  1 1 0 1 0 0 1 0 1 0 ...
 
-2.  Calculate the number of observations of `Age` variable are missing
-    in the dataset
+2.  Calculate the number of observations of `Age` variable that are
+    missing in the dataset
 
 ``` r
 titanic[is.na(titanic$Age),] %>% 
@@ -151,8 +151,7 @@ titanic %>%
     ##   * 1st 2nd 3rd 
     ##   1 322 279 711
 
-6.  Using grep, find the six passengers with the last name ’Fortune’.
-    Make this subset into a new dataframe. Did they all survive?
+6.  Using grep, find the six passengers with the last name `Fortune`.
 
 ``` r
 titanic[grep("Fortune",titanic$Name),]
@@ -172,3 +171,41 @@ titanic[grep("Fortune",titanic$Name),]
     ## 103  alive
     ## 104   dead
     ## 105  alive
+
+7.  What proportion of the passengers is the age unknown? Was this
+    proportion higher for 3rd class than 1st and 2nd?
+
+``` r
+# number of passengers where age is unknown
+titanic %>% 
+  filter(is.na(Age)) %>%
+  nrow()
+```
+
+    ## [1] 557
+
+``` r
+#number of passengers where age is unknown divided into different classes
+titanic %>% 
+  filter(is.na(Age))%>%
+  select(PClass) %>% 
+  table()
+```
+
+    ## PClass
+    ##   * 1st 2nd 3rd 
+    ##   1  96  67 393
+
+``` r
+# proportions 
+titanic %>% 
+  filter(is.na(Age))%>%
+  select(PClass) %>% 
+  table()/(titanic %>% 
+  filter(is.na(Age)) %>%
+  nrow())
+```
+
+    ## PClass
+    ##           *         1st         2nd         3rd 
+    ## 0.001795332 0.172351885 0.120287253 0.705565530

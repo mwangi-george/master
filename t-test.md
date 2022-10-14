@@ -30,8 +30,8 @@ gapminder <- gapminder
 Using the gapminder data, I can test whether there exists a difference
 in the gdp per capita of countries in Europe and those in Asia. The
 first thing before conducting a t test is to define the level of
-significance to use and that the data is a table. (For this exercise, I
-will use 5% level of significance).
+significance to use and that the data is well formatted. (For this
+exercise, I will use 5% level of significance).
 
 ### Hypothesis Stating
 
@@ -48,7 +48,7 @@ df <- gapminder %>%
   filter(continent %in% c("Europe", "Asia")) %>%  # filters the rows of interest
   group_by(continent) %>%                         # groups the data by continent
   select(continent, gdpPercap)                    # select the variables of interest.
-
+  
 # print the first 5 rows of df
 head(df, 5)
 ```
@@ -70,7 +70,7 @@ head(df, 5)
 options(scipen = 999)
 
 # t-test
-t.test(data = df, gdpPercap ~ continent)
+t.test(gdpPercap ~ continent, data = df)
 ```
 
     ## 
@@ -90,3 +90,5 @@ t.test(data = df, gdpPercap ~ continent)
 The p-Value (0.00000000000007904) is lower than 0.05 thus we reject the
 null hypothesis and conclude that the gdp per capita between Europe and
 Asia is Statistically different from zero.
+
+[Twitter](https://www.twitter.com/mwangi__george)

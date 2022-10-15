@@ -8,8 +8,7 @@ Mwangi George
 A scatter plot is an incredible go-to graphic when representing two
 numeric variables. However, when we want to add one more numeric
 variable to the dimension, one easy way is to use a bubble plot. Let’s
-use the Kenyan population data set available in the datasets folder of
-this repository.
+use the built-in USArrests data set.
 
 ## Data Exploration
 

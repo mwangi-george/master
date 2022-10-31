@@ -6,9 +6,9 @@
 
 
 # load important libraries
-pacman::p_load(tidyverse, janitor, data.table)
+pacman::p_load(tidyverse, janitor, data.table, ggthemes, infer)
 
-# laod the data
+# load the data
 laterite <- fread("D:\\Excel learning\\PROJECT_1\\laterite_mobilemoney_data.csv")
 
 # deselect start_time and end_time
@@ -105,3 +105,52 @@ company_mobile <- mobile_money %>%
   group_by(mm_account_telco_main) %>% 
   count(account_num1) %>% ungroup() %>% 
   mutate(percent = 100*n/sum(n))
+
+
+# visualize the above results 
+company_mobile %>% 
+  ggplot(aes(mm_account_telco_main, percent, fill = mm_account_telco_main))+
+  geom_col()+
+  labs(title = "Market Share of Mobile Money Providers",
+       x = "Mobile Money Provider",
+       y = "Percentage of Market Share")+
+  theme_economist()+
+  theme(legend.position = "none")
+
+#v240
+test <- mobile_money %>% 
+  filter(v240 == "yes" | v240 == "no") %>% view()
+
+
+
+test %>% 
+  prop_test(
+    v240 ~ urban,
+    order = c("Urban", "Rural"),
+    success = "yes",
+    alternative = "two.sided",
+    correct = F
+    )
+
+
+
+mobile_money %>% 
+  count(mm_account_cancelled, agent_trust)
+
+mobile_money %>% 
+  filter(mm_account_cancelled == "yes") %>% 
+  filter(agent_trust == "yes" | agent_trust == "no") %>% 
+  count(mm_account_cancelled, agent_trust)
+
+
+mobile_money %>% 
+  count(mm_account_cancelled, urban)
+
+mobile_money %>% 
+  count(mm_account_cancelled, v240)
+
+mobile_money %>% 
+  count(mm_account_cancelled, prefer_cash)
+
+mobile_money %>% 
+  count(mm_account_cancelled, gender)

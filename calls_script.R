@@ -138,9 +138,7 @@ calls %>%
 calls %>% 
   filter(type == "Incoming") %>% 
   count(first_name, last_name, from_number, sort = T) %>%
-  head(10)
-
-
+   view()
 
 
 

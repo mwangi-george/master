@@ -1,0 +1,514 @@
+---
+title: "Data Analytics Case Study Assessment"
+author: "Mwangi George"
+date: "`r format(Sys.Date(), '%d %B, %Y')`"
+output: 
+  cleanrmd::html_document_clean:
+    theme: sakura-vader
+    toc: yes
+    toc_float: yes
+---
+
+```{r setup, include=FALSE}
+# remove the scientific notation
+options(scipen = 999)
+# load essential packages
+pacman::p_load(tidyverse, janitor, lubridate, data.table, infer, ggthemes)
+# load data set
+laterite <- read_csv("datasets/laterite_mobilemoney_data.csv")
+```
+
+# The Task
+A certain company has recently finished the data collection for a project on the use of Mobile Money services and the experiences of Mobile Money customers in three districts of Kenya.
+
+The dataset has been provided and you have been asked to write a short summary outlining key initial findings to be discussed by the Specialist Advisory Board for the study. Members of this Board include representatives from the National Bank of the country, the Utilities Regulatory Authority and NGO’s focusing on access to digital financial services and associated consumer protection issues.
+
+These key initial findings will be used to inform the next stage of the study which includes focus group discussions with mobile money customers. Correctly identifying and interpreting issues that negatively affect mobile money customers is very important for prioritizing topics to take forward in the qualitative research.
+
+You are responsible for performing all the statistical analysis required and writing up the key findings. You should remember that the target audience do not have a statistical background. To analyse the dataset please use Stata, R or Python. You may also consult any resources you like, except other people.
+
+The research manager wants you to address the following points in the key findings document and working files:
+
+1. During the survey, participants listed all the different types of financial account that they have registered. The resulting data has a format where there is one observation per account type. Format the data so that there is now one observation per participant. (5 marks)
+
+2. Create two dummy variables for whether each participant is: i) financially excluded and ii) digitally financially included. What are the overall rates of financial exclusion and digital financial inclusion for the combined population of these three districts? (10 marks)
+
+    a. Financial exclusion is defined as not having registered for any type of financial account including accounts with: Mobile money operators, banks, micro-finance institutions (MFI’s), savings and credit cooperative organisations (SACCO’s) and village savings and loan associations (VSLA’s).
+
+    b. Digital financial inclusion is defined as having at least one registered account with a mobile money operator or an online bank account.
+
+3. Describe in a few short paragraphs how the mobile money market is divided between the three companies. Include at least one chart or table to illustrate your findings. (15 marks)
+
+4. Is there a difference in the share of customers who have experienced failed mobile money transactions in rural and urban villages? If so, is it statistically significant? Explain your findings including any assumptions and limitations. (15 marks)
+
+5. What variables are good predictors that someone will cancel their mobile money account? Discuss what causes a customer to stop using their mobile money account including how strong the evidence is. (20 marks)
+
+Additional marks will be given for:
+
+* The client readiness of your written document (5 marks)
+* The quality of your code (5 marks)
+
+TOTAL: 75 marks
+
+
+# Variable Description
+
+hhid - Household ID
+
+weight - Sampling Weight
+
+account_num - Account Number
+
+account_type - Type of account
+
+district - District of household
+
+urban - Household location in urban or rural village
+
+gender - Gender
+
+age -Age
+
+hh_members - Number of household members
+
+highest_grade_completed - Highest grade completed
+
+mm_account_cancelled - Has cancelled a mobile money account in the past
+
+prefer_cash - Preference for cash over cashless payment methods
+
+mm_trust - Do you trust mobile money?
+
+mm_account_telco - Please select the providers for which you have a mobile money account
+
+mm_account_telco_main - Which would you consider your main Mobile Money account?
+
+v234 - I understood the terms and conditions when I registered for a mobile money account.
+
+agent_trust - Do you trust mobile money agents?
+
+v236 - Have you ever taken a mobile money loan?
+
+v237 - Have you ever had issues with the network being unavailable for mobile money transactions?
+
+v238 - Before making a transaction are you clear about the fees?
+
+v240 - Has a transaction ever failed to go through?
+
+v241 - Has an agent you’ve dealt with ever not had enough cash or efloat available?
+
+v242 - Do you have a copy of the mobile money terms and conditions?
+
+v243 - Do you understand how and where to complain if you have an issue with mobile money?
+
+v244 - Have you had an issue successfully resolved after making a complaint?
+
+v245 - Do you understand what data mobile money providers collect about you?
+
+v246 - Have you been a victim of fraud?
+
+# Answer
+
+```{r include=FALSE}
+# view dataframe structure
+glimpse(laterite)
+```
+
+```{r}
+# remove duplication
+laterite %>% 
+  distinct() %>% 
+# change start_time and end_time into the datetime format
+  mutate(start_time = parse_date_time(start_time, 
+                                      orders = "bdY_IMS"),
+         end_time =parse_date_time(end_time, 
+                                   orders = "bdY_IMS")) -> laterite
+
+```
+
+## Formatting the dataframe
+The data is in the long format with respect to account type. Let's pivot the data to ensure that each account type is a variable. The code in the chunk below ensures that there is one observation per participant. 
+```{r}
+laterite %>% 
+  # select columns to manipulate
+  select(hhid, account_num, account_type) %>% 
+  # transform account type to wider format
+  pivot_wider(
+    # variable names to be derived from account numbers
+    names_from = account_num, 
+    # Values derived from account types
+    values_from = account_type,
+    # give variable names prefixes and assign the results to accounts
+    names_prefix = "account_") -> accounts
+```
+
+Having pivoted the accounts, we have achieved a format where each household has one observation. We can connect the accounts table to the whole dataset, but we need to deselect the pivoted columns first and then remove duplicates. 
+```{r}
+# format to get one observation per participant
+laterite %>% 
+  # deselect start_time, end_time, and pivoted columns 
+  select(-c(start_time, end_time, account_num, account_type)) %>% 
+  # remove the duplication
+  distinct() %>% 
+  # inner join the accounts table using hhid column
+  inner_join(accounts, by = "hhid") %>% 
+  # select the variables in the initial order and assign to laterite_formatted
+  select(hhid, 
+         account_1, 
+         account_2, 
+         account_3, 
+         account_4, 
+         account_5, 
+         everything()) -> laterite_formatted
+```
+
+We now have one observation per participant. However, I had to leave the start_time and end_time aside to make the manipulation simpler. Next on question 2
+
+## Creating dummy variables
+
+### Financial exclusion
+
+The first dummy variable we need to create is `financially_excluded`. A participant in the survey is financially excluded if they have not registered with mobile money operators, in this case, if they do not have any of account 1, 2, 3, 4, or 5. In `account_1` column there are no missing values, but there are participants with `None` as shown by the output of the code output below.
+```{r echo=FALSE}
+laterite_formatted %>% 
+  # print unique account types
+  distinct(account_1)
+```
+
+Our dummy variable creation will therefore depend on this participants with `None` in account_1.
+```{r}
+laterite_formatted %>% 
+  # create dummy, if account_1 is None, 1, 0 otherwise
+  mutate(financially_excluded = if_else(account_1 == "None", 1, 0)) %>% 
+  # select the columns in the right order
+  select(1:6, financially_excluded, everything()) -> laterite_formatted
+```
+#### Overall rate of financial exclusion
+
+In this section, we will calculate the overall rate of financial exclusion for the combined population of the three districts. The table below summarizes the number of customers and by whether they financially excluded or not.
+```{r echo=FALSE}
+laterite_formatted %>% 
+  # count the number of financially_excluded participants 
+  count(financially_excluded) %>% 
+  # calculate the overall exclusion rate by district
+  mutate(exclusion_rate = n/sum(n)*100) 
+```
+
+From the above output, the overall financial exclusion rate for the combined population of the three districts is about 11.95 percent.
+
+### Digital financial inclusion
+A participant in the survey is digitally financially included if they have at least one registered account a mobile money operator or an online bank account. We will perform several analyses to identify which variables are necessary to create this dummy variable. This includes checking distinct values in each of account 1, 2, 3, 4, or 5.
+```{r echo=FALSE}
+laterite_formatted %>% 
+  distinct(account_1)
+```
+`account_1` is necessary since it contains participants registered with a mobile money operator.
+
+```{r echo=FALSE}
+laterite_formatted %>% 
+  distinct(account_2)
+```
+`account_2` is unnecessary since it does not contain participants registered with either a mobile money operator or an online bank account.
+
+```{r echo=FALSE}
+laterite_formatted %>% 
+  distinct(account_3)
+```
+`account_3` is necessary since it contains participants registered with an online bank account
+
+```{r echo=FALSE}
+laterite_formatted %>% 
+  distinct(account_4)
+```
+`account_4` is unnecessary since it does not contain participants registered with either a mobile money operator or an online bank account.
+
+```{r echo=FALSE}
+laterite_formatted %>% 
+  distinct(account_5)
+```
+`account_5` is also unnecessary since it does not contain participants registered with either a mobile money operator or an online bank account.
+
+Our dummy variable creation for digital financial inclusion will therefore depend on `account_1` and `account_3`
+
+```{r}
+laterite_formatted %>% 
+  # create a dummy variable, 1 if account_1 is "Mobile Money" or
+  # account_3 is "Online Bank Account", else 0.
+  mutate(digitally_financially_included = case_when(
+    laterite_formatted$account_1 == "Mobile Money" ~ 1,
+    laterite_formatted$account_3 == "Online Bank Account" ~1,
+    TRUE ~ 0
+    )) %>% 
+  # select variables in the right order and overwrite laterite_formatted
+  select(1:7, digitally_financially_included, everything()) -> laterite_formatted
+```
+
+#### Overall rate of digital financial inclusion
+
+In this section, we will calculate the overall rate of digital financial inclusion for the combined population of the three districts. The table below shows the share of customers grouped by whether they are digitally financially included or not
+```{r echo=FALSE}
+laterite_formatted %>%
+  # count 1's and 0's in digitally_financially_included variable
+  count(digitally_financially_included) %>% 
+  # calculate digital financial inclusion rate
+  mutate(digitally_financial_inclusion_rate = n/sum(n)*100)
+```
+
+From the above code output, the overall digital financial inclusion rate for the combined population of the three district is about 68.63 percent. 
+
+
+## How the Mobile Money market is divided between the three companies
+
+We will do our analysis based on the main mobile money provider (mm_account_telco_main variable). The table below shows the number of mobile money customers grouped by their main mobile money account provider.
+```{r echo=FALSE}
+laterite_formatted %>% 
+  filter(account_1 == "Mobile Money") %>% 
+  count(account_1, mm_account_telco_main) %>% 
+  mutate(percent = n/sum(n)*100) %>% 
+  rename("no. of customers" = n)
+```
+
+Company A has the largest mobile money market share, about 29.14 percent followed by company B with 18.98 percent and then company C with 0.84 percent. However most of the population do not have a main mobile money provider. The graph below is illustrates this share
+
+
+```{r echo=FALSE}
+laterite_formatted %>% 
+  filter(account_1 == "Mobile Money") %>% 
+  count(account_1, mm_account_telco_main) %>% 
+  mutate(percent = n/sum(n)*100) %>% 
+  ggplot(aes(mm_account_telco_main, percent))+
+  geom_col(width = 0.5, fill = "blue", alpha = .5)+
+  labs(y = "Percentage of market share",
+       x = "Company",
+       title = "Percentage Market Share by Company")+
+  theme_clean()+
+  theme(legend.position = "none")
+```
+
+
+## Hypothesis testing
+In this section, our aim is to answer the question of whether there is a difference in the share of customers who have experienced failed mobile money transactions in rural and urban villages. Let's first investigate the number of customers who have experienced failed mobile money transactions in rural and urban villages.
+```{r echo=FALSE}
+
+laterite_formatted %>%
+  # count by v240 and urban 
+  count(v240, urban) %>% 
+  # filter where v340 is yes
+  filter(v240 == "yes")
+```
+
+The results reveal quite a big difference (there are 155 participants in rural areas and 85 in urban areas). However, we need to test if this difference is statistically significant. Let's assume a 5 percent level of significance. We can phrase the null and alternative hypotheses as follows.
+
+  * *H0: The proportion of customers who have experienced failed mobile money transactions is the same in rural villages as in urban villages.*
+    
+  * *H1: The proportion of customers who have experienced failed mobile money transactions is the different in rural villages as in urban villages.*
+
+To perform the above, we use the `prop_test` function from the infer package. We could use the `prop.test` function from base R, but its interface is somewhat peculiar.
+```{r}
+# conduct proportion test
+laterite_formatted %>% 
+  prop_test(
+  v240 ~ urban,               # proportions vs categories
+  order = c("Rural", "Urban"),# which p_hat to subtract from
+  success = "yes",            # which response value to count proportions of
+  alternative = "two-sided",  # type of alternative hypothesis
+  correct = F                 # should Yates' continuity correction be applied?
+) %>% pull(p_value)
+
+```
+### Findings
+Our p value is less than our alpha value. We reject the null hypothesis in favor of alternative hypothesis that there is a difference in the proportion of customers who have experienced failed mobile money transactions between rural and urban villages. This analysis, however, was limited by the fact that a considerable number of the participants in the survey did not answer whether they have experienced failed mobile transactions. 
+
+## Mobile Money Account Cancellation
+In this section, we will investigate the variables in the dataset that are good predictors that someone will cancel their mobile money account. 
+Let's start by analyzing the more obvious factors such as gender, location, agent trust, age, and mobile money trust
+
+### Relationship between Mobile Money account cancellation and location.
+
+The table below shows the number of customers who have cancelled their mobile money account in rural and urban villages.
+```{r echo = FALSE}
+laterite_formatted %>% 
+  # filter where mm_account_cancelled is yes
+  filter(mm_account_cancelled == "yes") %>% 
+  # count mm_account_cancelled by urban
+  count(mm_account_cancelled, urban) 
+```
+
+The above results shows that, out of 179 participants who cancelled their mobile money account, 163 are from rural villages and 16 from urban villages. Lets utilize a graphical procedure to under these results.
+
+
+```{r echo=FALSE, fig.width=8}
+laterite_formatted %>% 
+  # filter where mm_account_cancelled is yes
+  filter(mm_account_cancelled == "yes") %>% 
+  # count mm_account_cancelled by urban
+  count(mm_account_cancelled, urban) %>% 
+  ggplot(aes(urban, n))+
+  geom_col(fill = "blue", alpha = 0.5, width = 0.5)+
+  theme_clean()+
+  labs(title = "No. of Participants who cancelled their mobile money account by location",
+       y = "No of participants")+
+   theme(axis.title.x = element_blank())
+```
+
+From the above graph, the location of a customer (whether urban or rural) seems to be a strong factor affecting mobile money account cancellation. Those from rural areas are more likely to cancel their mobile money account. However, we need to conduct a statistical test to investigate if the increase observed in rural areas is statistically significant or was due to chance. We will assume a 5 percent level of significance. Our null and alternative hypothesis will be as follows:
+
+  * *H0: The proportion of customers who have cancelled their mobile money account is the same in rural village as in urban villages.*
+  
+  * *H1: The proportion of customers who have cancelled their mobile money account is greater in rural villages than in urban villages.*
+  
+The following is the p value obtained from the above analysis. 
+```{r echo=FALSE}
+laterite_formatted %>% 
+  prop_test(
+    mm_account_cancelled ~ urban,
+    order = c("Rural", "Urban"),
+    success = "yes",
+    alternative = "greater"
+  ) %>% pull(p_value)
+```
+
+Since the p value is less than our 0.05 threshold, we reject the null hypothesis and conclude that the proportion of customers who have cancelled their mobile money account is greater in rural villages than in urban villages.
+
+### Relationship between Mobile Money account cancellation and gender.
+
+The table below shows the number of participants who cancelled their mobile money account by gender.
+```{r echo=F}
+laterite_formatted %>% 
+  filter(mm_account_cancelled == "yes") %>% 
+  count(mm_account_cancelled, gender)
+```
+
+Out of 179 participants who cancelled their mobile money account, 131 are female and 48 are male. The graph below demonstrates this difference.
+
+
+```{r fig.width=8, echo=FALSE}
+laterite_formatted %>% 
+  filter(mm_account_cancelled == "yes") %>% 
+  count(mm_account_cancelled, gender) %>% 
+  ggplot(aes(gender, n))+
+  geom_col(fill = c("blue"), alpha = 0.5, width = 0.5)+
+  ylim(c(0,150))+
+  theme_clean()+
+  labs(title = "No. of Participants who cancelled their mobile money account by Gender",
+       y = "No of participants")+
+   theme(axis.title.x = element_blank())
+```
+
+There seems to be a direct relationship between gender and whether someone will cancel their mobile money account. Females are more likely to cancel compared to males. Let's conduct a proportion test to determine if there exists a statistically significant difference in the share of customers who have cancelled their mobile money account across gender. We can formulate our hypotheses as follows
+
+ * *H0: The proportion of customers who have cancelled their mobile money account is the same across gender.*
+ * *H1: The proportion of customers who have cancelled their mobile money account is greater for females than for males.*
+
+The following is the p value obtained from the above test.
+```{r echo=FALSE}
+laterite_formatted %>% 
+  prop_test(
+    mm_account_cancelled ~ gender,
+    order = c("female", "male"),
+    success = "yes",
+    alternative = "greater"
+  ) %>% pull(p_value)
+```
+This p value is obviously much lower than our threshold. We therefore reject the null hypothesis in favor of alternative hypothesis that the proportion of customers who have cancelled their mobile money account is greater for females than for males.
+
+### Relationship between Mobile Money account cancellation and Age.
+
+To understand the above relationship, let's look at the mean age for customers who cancelled their mobile money accounts and those who didn't cancel.
+```{r echo=FALSE}
+laterite_formatted %>% 
+  group_by(mm_account_cancelled) %>% 
+  summarise(mean_age = mean(age))
+```
+
+Those who cancelled their mobile money account have a higher mean age than those who didn't by 1.6212 years. The graph below shows the age distribution for customers who cancelled their mobile money accounts as well as those who didn't cancel.
+
+
+```{r echo=FALSE}
+laterite_formatted %>% 
+  ggplot(aes(age, mm_account_cancelled))+
+  geom_boxplot(fill = "blue", alpha = 0.5)+
+  xlim(c(0,100))+
+  coord_flip()+
+  theme_clean()+
+  labs(title = "Age distribution by mobile money account cancellation")
+```
+
+Since the difference in age between the two groups is not quite clear, let's use a t test to prove if the 1.6212 years difference is statistically significant or is due to chance. Our null and alternative hypotheses will be as follows:
+  
+  * *The true difference in the mean age between those who cancelled their mobile money account and those who didn't is equal to zero.*
+  
+  * *The true difference in the mean age between those who cancelled their mobile money account and those who didn't is not equal to zero.*
+
+The following is the output of the analysis.
+
+```{r echo=FALSE}
+t.test(age ~ mm_account_cancelled, data = laterite_formatted)
+```
+
+The above p value is greater than our alpha value; we fail to reject the null hypothesis and conclude that there is no significance difference in the age of customers who cancel their mobile money account and those who don't. Age is therefore not a good predictor that someone will cancel their mobile money account. 
+
+### Relationship between Mobile Money account cancellation and mobile money trust.
+
+To understand this relationship, let's look at the share of customers who have cancelled their mobile money account grouped by whether they trust mobile money or not. 
+```{r, echo=FALSE}
+laterite_formatted %>% 
+  count(mm_account_cancelled, mm_trust) %>% 
+  filter(mm_account_cancelled == "yes")
+```
+
+151 of the customers who cancelled their mobile money account do not trust mobile money. Only 14 customers out of 179 customers trust mobile. The other 14 did not provide an answer whether they trust mobile money or not. The graph below illustrates this.
+
+
+```{r echo=FALSE, fig.width=8}
+laterite_formatted %>% 
+  count(mm_account_cancelled, mm_trust) %>% 
+  filter(mm_account_cancelled == "yes") %>% 
+  ggplot(aes(mm_trust, n))+
+  geom_col(fill = "blue", alpha = 0.5, width = 0.5)+
+  theme_clean()+
+  labs(y = "No. of customers",
+       x = "Mobile Money Trust",
+       title = "No. of Customers who cancelled their Mobile Account by mobile money trust")
+```
+
+
+Mobile money trust seems to be a good predictor that someone will cancel their mobile money account. If someone doesn't trust mobile money, they are more likely to cancer their account. Let's now apply a statistical test to determine if there is a statistically significant difference in the share of customers who cancelled their mobile money account for those who trust mobile money and those who do not (5% level of significance). We can phrase the null and alternative hypothesis as follows.
+
+  * *H0: The proportion of customers who cancelled their mobile money account is the same for those who trust mobile money and those that do not.*
+  
+  * *H1: The proportion of customers who cancelled their mobile money account is greater for those who trust mobile money than for those that do not.*
+
+Below is the p value obtained from the analysis.
+```{r echo=FALSE}
+laterite_formatted %>% 
+  prop_test(
+    mm_account_cancelled ~ mm_trust,
+    order = c("yes", "no"),
+    success = "yes",
+    alternative = "greater",
+    correct = F
+  ) %>% pull(p_value)
+```
+
+The p value is greater than our alpha value. We therefore fail to reject the null hypothesis and conclude that the proportion of customers who cancelled their mobile money account is the same for those who trust mobile money as for those who do not. The increase observed earlier in the exploratory analysis is therefore due to chance.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

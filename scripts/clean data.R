@@ -189,13 +189,14 @@ refine %>%
 
 
 
+now <- as.POSIXct("2022-11-11 19:16:01", tz = Africa/Nairobi)
+tz(now)
 
 
+Sys.Date()
+Sys.timezone()
 
-
-
-
-
+parse_date_time("2022-11-11 19:16:01")
 
 
 

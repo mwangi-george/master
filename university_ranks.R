@@ -1,3 +1,23 @@
+# function to load most commonly used libraries
+
+essential_libraries <- function(x){
+  pacman::p_load(tidyverse,
+                 data.table, 
+                 janitor,
+                 tibble, 
+                 gapminder, 
+                 visdat, 
+                 lubridate, 
+                 assertive, 
+                 infer, 
+                 DBI
+  )
+}
+
+# load 
+essential_libraries()
+
+
 universities <- read_csv("datasets/universities.csv")
 
 names(universities)
@@ -71,6 +91,21 @@ times_data %>%
   select(
     rowid, year, world_rank:num_students, n_female:n_staff
   ) -> university_ranks
+
+glimpse(university_ranks)
+
+university_ranks %>% 
+  select(
+    rowid:num_students, 
+    num_female = n_female,
+    num_male = n_male,
+    num_international = n_international,
+    num_local = n_local, 
+    num_staff = n_staff
+    ) -> university_ranks 
+
+university_ranks %>% 
+  mutate(year = as.factor(year)) ->university_ranks
 
 
 

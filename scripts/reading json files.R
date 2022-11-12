@@ -3,6 +3,9 @@ essential_libraries()
 library(rjson)
 iris <- fromJSON(file = "datasets/iris.json")
 
+
+# if the named list contain equal lengths, use
+# unnest_wider otherwise unnest_longer
 tibble(character = iris) %>% 
   unnest_wider(character) %>% view()
 

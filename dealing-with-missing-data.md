@@ -1,7 +1,7 @@
 Dealing with Missing Data
 ================
 Mwangi George
-15 Nov, 2022
+16 Nov, 2022
 
 -   <a href="#introduction" id="toc-introduction">Introduction</a>
     -   <a href="#basic-functions" id="toc-basic-functions">Basic Functions</a>
@@ -278,7 +278,8 @@ gg_miss_var(my_data) +
   ) +
   # make axis text bold
   theme(axis.text.y = element_text(face = "bold"))+
-  theme_clean()
+  # add theme
+  theme_classic()
 ```
 
 ![](dealing-with-missing-data_files/figure-gfm/unnamed-chunk-14-1.png)<!-- -->
@@ -306,3 +307,35 @@ gg_miss_upset(my_data)
 We can see that only 399 missing value combinations of v244, v236,
 mm_account_telco_main, agent_trust, and v234. There are only 344 of
 v244, v236 and mm_account_telco_main.
+
+To explore how missingness in each variable changes across a factor say,
+gender in this case, we call `gg_miss_fct()`. This displays a heat-map
+visualization showing the factor on the x axis, each other variable on
+the y axis, and the amount of missingness colored from dark, purple to
+blue.
+
+``` r
+  gg_miss_fct(my_data, fct = gender) +
+  labs(
+    title = "Percentage of Missing values across Gender"
+    )+
+  theme_calc()
+```
+
+![](dealing-with-missing-data_files/figure-gfm/unnamed-chunk-17-1.png)<!-- -->
+
+Depending on the intensity of the colors, most values are missing in the
+female category.
+
+To visualize missingness over a span or run, we can use `gg_miss_span()`
+and pass the data, the variable of interest, and the size of every span.
+
+``` r
+gg_miss_span(my_data, agent_trust, 500)+ 
+  theme_calc()
+```
+
+![](dealing-with-missing-data_files/figure-gfm/unnamed-chunk-18-1.png)<!-- -->
+
+We can learn that most of the data is missing in the third span, i.e
+from case 1001 to case 1500.

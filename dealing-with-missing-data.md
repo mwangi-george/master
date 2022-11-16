@@ -12,8 +12,8 @@ Mwangi George
 -   <a href="#searching-for-and-replacing-missing-values"
     id="toc-searching-for-and-replacing-missing-values">Searching for and
     Replacing Missing Values</a>
-    -   <a href="#search" id="toc-search">Search</a>
--   <a href="#replacing" id="toc-replacing">Replacing</a>
+    -   <a href="#searching" id="toc-searching">Searching</a>
+    -   <a href="#replacing" id="toc-replacing">Replacing</a>
 
 # Introduction
 
@@ -354,7 +354,7 @@ values. Before we start analysis, it is important to look out for such
 cases, especially when one is dealing with data from multiple sources
 that have different formatting structures.
 
-### Search
+### Searching
 
 To search for such values, we use the `miss_scan_count()`. We pass the
 data as the first argument then include the values we want to search as
@@ -386,7 +386,7 @@ miss_scan_count(my_data,
 
 We can see that no variables contain any of the searched values.
 
-# Replacing
+### Replacing
 
 To replace values with `NA`, we use `replace_with_na()` and pass a list
 of values we want to replace with `NA`. This function is quite helpful

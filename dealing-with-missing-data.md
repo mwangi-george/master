@@ -9,6 +9,11 @@ Mwangi George
         Functions</a>
 -   <a href="#visualizing-missingness"
     id="toc-visualizing-missingness">Visualizing Missingness</a>
+-   <a href="#searching-for-and-replacing-missing-values"
+    id="toc-searching-for-and-replacing-missing-values">Searching for and
+    Replacing Missing Values</a>
+    -   <a href="#search" id="toc-search">Search</a>
+-   <a href="#replacing" id="toc-replacing">Replacing</a>
 
 # Introduction
 
@@ -339,3 +344,130 @@ gg_miss_span(my_data, agent_trust, 500)+
 
 We can learn that most of the data is missing in the third span, i.e
 from case 1001 to case 1500.
+
+# Searching for and Replacing Missing Values
+
+A value is missing in R if it is coded `NA`. However in some cases,
+missing values maybe represented as `missing`, `Not Available`, `" "`,
+`N/A`, `N/a`, `n/a`, or `na`. R does not know that this are missing
+values. Before we start analysis, it is important to look out for such
+cases, especially when one is dealing with data from multiple sources
+that have different formatting structures.
+
+### Search
+
+To search for such values, we use the `miss_scan_count()`. We pass the
+data as the first argument then include the values we want to search as
+a list to the search argument. This returns a dataframe with each
+variable and the number to times the searched value occurs in that
+variable.
+
+``` r
+miss_scan_count(my_data, 
+                search = list(
+                  "missing", "Not Available", "N/A", "na", "N/a"
+                  ))
+```
+
+    ## # A tibble: 29 × 2
+    ##    Variable         n
+    ##    <chr>        <int>
+    ##  1 start_time       0
+    ##  2 end_time         0
+    ##  3 hhid             0
+    ##  4 account_num      0
+    ##  5 account_type     0
+    ##  6 weight           0
+    ##  7 district         0
+    ##  8 urban            0
+    ##  9 gender           0
+    ## 10 age              0
+    ## # … with 19 more rows
+
+We can see that no variables contain any of the searched values.
+
+# Replacing
+
+To replace values with `NA`, we use `replace_with_na()` and pass a list
+of values we want to replace with `NA`. This function is quite helpful
+because we have control over what we want to replace with `NA` as well
+as which variables we want to manipulate. Say we have values coded as
+“missing”, “Not Available”, “N/A”, “na”, or “N/a” in the variable
+`v244`, we can replace them with `NA` as follows
+
+``` r
+my_data %>% 
+  replace_with_na(
+    replace = list(
+      v244 = c("missing", "Not Available", "N/A", "na", "N/a")
+    )
+  ) %>% 
+  select(
+    v244
+  ) %>% 
+  head()
+```
+
+    ## # A tibble: 6 × 1
+    ##   v244 
+    ##   <chr>
+    ## 1 <NA> 
+    ## 2 <NA> 
+    ## 3 <NA> 
+    ## 4 <NA> 
+    ## 5 <NA> 
+    ## 6 yes
+
+If we want to alter the whole dataframe, we can use
+`replace_with_na_all()`. The syntax of this function is quite tricky but
+once you master it, it becomes very simple. For example, if we want to
+replace values coded as “missing” in the whole dataframe, we proceed as
+follows
+
+``` r
+my_data %>% 
+  replace_with_na_all(
+    condition = ~.x == "missing"
+  ) %>% 
+  slice_head()
+```
+
+    ## # A tibble: 1 × 29
+    ##   start_time     end_t…¹  hhid accou…² accou…³ weight distr…⁴ urban gender   age
+    ##   <chr>          <chr>   <dbl>   <dbl> <chr>    <dbl> <chr>   <chr> <chr>  <dbl>
+    ## 1 Oct 28, 2019 … Oct 28…  1001       1 Mobile…   146. Distri… Urban male      32
+    ## # … with 19 more variables: hh_members <dbl>, highest_grade_completed <chr>,
+    ## #   mm_account_cancelled <chr>, prefer_cash <chr>, mm_trust <chr>,
+    ## #   mm_account_telco <chr>, mm_account_telco_main <chr>, v234 <chr>,
+    ## #   agent_trust <chr>, v236 <chr>, v237 <chr>, v238 <chr>, v240 <chr>,
+    ## #   v241 <chr>, v242 <chr>, v243 <chr>, v244 <chr>, v245 <chr>, v246 <chr>, and
+    ## #   abbreviated variable names ¹​end_time, ²​account_num, ³​account_type,
+    ## #   ⁴​district
+
+If we are replacing several values with `NA`, we can use the `%in%`.
+
+``` r
+my_data %>% 
+replace_with_na_all(
+  condition = ~.x %in% c(
+    "missing", "Not Available", "N/A", "na", "N/a"
+    )
+  ) %>% 
+  slice_head()
+```
+
+    ## # A tibble: 1 × 29
+    ##   start_time     end_t…¹  hhid accou…² accou…³ weight distr…⁴ urban gender   age
+    ##   <chr>          <chr>   <dbl>   <dbl> <chr>    <dbl> <chr>   <chr> <chr>  <dbl>
+    ## 1 Oct 28, 2019 … Oct 28…  1001       1 Mobile…   146. Distri… Urban male      32
+    ## # … with 19 more variables: hh_members <dbl>, highest_grade_completed <chr>,
+    ## #   mm_account_cancelled <chr>, prefer_cash <chr>, mm_trust <chr>,
+    ## #   mm_account_telco <chr>, mm_account_telco_main <chr>, v234 <chr>,
+    ## #   agent_trust <chr>, v236 <chr>, v237 <chr>, v238 <chr>, v240 <chr>,
+    ## #   v241 <chr>, v242 <chr>, v243 <chr>, v244 <chr>, v245 <chr>, v246 <chr>, and
+    ## #   abbreviated variable names ¹​end_time, ²​account_num, ³​account_type,
+    ## #   ⁴​district
+
+There are other helpful functions such as `replace_with_na_at()` to
+alter a subset of selected variables, and `replace_with_na_if()` to
+alter a subset of variables that fulfill some condition.

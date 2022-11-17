@@ -1,7 +1,7 @@
 Dealing with Missing Data
 ================
 Mwangi George
-16 Nov, 2022
+17 Nov, 2022
 
 -   <a href="#introduction" id="toc-introduction">Introduction</a>
     -   <a href="#basic-functions" id="toc-basic-functions">Basic Functions</a>
@@ -14,6 +14,9 @@ Mwangi George
     Replacing Missing Values</a>
     -   <a href="#searching" id="toc-searching">Searching</a>
     -   <a href="#replacing" id="toc-replacing">Replacing</a>
+    -   <a href="#the-shadow-matrix-and-nabular-data"
+        id="toc-the-shadow-matrix-and-nabular-data">The Shadow Matrix and
+        Nabular data</a>
 
 # Introduction
 
@@ -470,4 +473,108 @@ replace_with_na_all(
 
 There are other helpful functions such as `replace_with_na_at()` to
 alter a subset of selected variables, and `replace_with_na_if()` to
-alter a subset of variables that fulfill some condition.
+alter a subset of variables that fulfill some condition. For instance,
+to replace values with `NA` at variables `v234`, `agent_trust`, `v236`,
+we use `replace_with_na_at()`
+
+``` r
+# Use replace_with_na_at() to replace with NA
+replace_with_na_at(my_data,
+  .vars = c("v234", "agent_trust", "v236"),
+  ~ .x %in% c("N/A", "missing", "na")
+) %>% 
+  head()
+```
+
+    ## # A tibble: 6 × 29
+    ##   start_time     end_t…¹  hhid accou…² accou…³ weight distr…⁴ urban gender   age
+    ##   <chr>          <chr>   <dbl>   <dbl> <chr>    <dbl> <chr>   <chr> <chr>  <dbl>
+    ## 1 Oct 28, 2019 … Oct 28…  1001       1 Mobile…   146. Distri… Urban male      32
+    ## 2 Oct 28, 2019 … Oct 28…  1001       2 Bank A…   146. Distri… Urban male      32
+    ## 3 Oct 28, 2019 … Oct 28…  1001       3 VSLA A…   146. Distri… Urban male      32
+    ## 4 Oct 28, 2019 … Oct 28…  1002       1 SACCO …   123. Distri… Rural male      32
+    ## 5 Oct 28, 2019 … Oct 28…  1002       2 VSLA A…   123. Distri… Rural male      32
+    ## 6 Oct 28, 2019 … Oct 28…  1003       1 Mobile…   760. Distri… Urban male      30
+    ## # … with 19 more variables: hh_members <dbl>, highest_grade_completed <chr>,
+    ## #   mm_account_cancelled <chr>, prefer_cash <chr>, mm_trust <chr>,
+    ## #   mm_account_telco <chr>, mm_account_telco_main <chr>, v234 <chr>,
+    ## #   agent_trust <chr>, v236 <chr>, v237 <chr>, v238 <chr>, v240 <chr>,
+    ## #   v241 <chr>, v242 <chr>, v243 <chr>, v244 <chr>, v245 <chr>, v246 <chr>, and
+    ## #   abbreviated variable names ¹​end_time, ²​account_num, ³​account_type,
+    ## #   ⁴​district
+
+## The Shadow Matrix and Nabular data
+
+The shadow is a dataframe of ones and zeros with each representing
+whether a value is missing (1) or not (0). The as_shadow() function in R
+transforms a dataframe into a shadow matrix, a special data format where
+the values are either missing (NA), or Not Missing (!NA). The column
+names of a shadow matrix are the same as the data, but have a suffix
+added \_NA.
+
+``` r
+# select a few variables 
+my_data %>% 
+  select(20:29) %>% 
+  as_shadow() %>% 
+  head()
+```
+
+    ## # A tibble: 6 × 10
+    ##   v236_NA v237_NA v238_NA v240_NA v241_NA v242_NA v243_NA v244_NA v245_NA
+    ##   <fct>   <fct>   <fct>   <fct>   <fct>   <fct>   <fct>   <fct>   <fct>  
+    ## 1 NA      !NA     !NA     !NA     !NA     !NA     !NA     NA      !NA    
+    ## 2 NA      !NA     !NA     !NA     !NA     !NA     !NA     NA      !NA    
+    ## 3 NA      !NA     !NA     !NA     !NA     !NA     !NA     NA      !NA    
+    ## 4 NA      !NA     !NA     !NA     !NA     !NA     !NA     NA      !NA    
+    ## 5 NA      !NA     !NA     !NA     !NA     !NA     !NA     NA      !NA    
+    ## 6 NA      !NA     !NA     !NA     !NA     !NA     !NA     !NA     !NA    
+    ## # … with 1 more variable: v246_NA <fct>
+
+To keep track of and compare data values to their missingness state, use
+the bind_shadow() function. Having data in this format, with the shadow
+matrix column bound to the regular data is called nabular data. This
+returns the variable values and their shadow representation. We can then
+use the nabular dataframe to calculate summary statistics of one
+variable, based on the missingness of another. Say we want to calculate
+the mean of `age` based on the missingness `v244`
+
+``` r
+my_data %>% 
+  bind_shadow() %>% 
+  group_by(v244_NA) %>% 
+  summarise(mean_age = mean(age))
+```
+
+    ## # A tibble: 2 × 2
+    ##   v244_NA mean_age
+    ##   <fct>      <dbl>
+    ## 1 !NA         35.1
+    ## 2 NA          39.6
+
+We learn that the values of age are relatively higher when v244 is
+missing than when v244 is not missing.
+
+To bind only the variables with missing values, we set the argument
+only_miss to TRUE.
+
+``` r
+# Bind only the variables with missing values
+my_data %>% 
+  # select a few variables
+  select(3:5, 25:29) %>% 
+  bind_shadow(only_miss = T) %>% 
+  head()
+```
+
+    ## # A tibble: 6 × 13
+    ##    hhid account_…¹ accou…² v242  v243  v244  v245  v246  v242_NA v243_NA v244_NA
+    ##   <dbl>      <dbl> <chr>   <chr> <chr> <chr> <chr> <chr> <fct>   <fct>   <fct>  
+    ## 1  1001          1 Mobile… no    yes   <NA>  yes   no    !NA     !NA     NA     
+    ## 2  1001          2 Bank A… no    yes   <NA>  yes   no    !NA     !NA     NA     
+    ## 3  1001          3 VSLA A… no    yes   <NA>  yes   no    !NA     !NA     NA     
+    ## 4  1002          1 SACCO … no    no    <NA>  no    no    !NA     !NA     NA     
+    ## 5  1002          2 VSLA A… no    no    <NA>  no    no    !NA     !NA     NA     
+    ## 6  1003          1 Mobile… no    yes   yes   yes   no    !NA     !NA     !NA    
+    ## # … with 2 more variables: v245_NA <fct>, v246_NA <fct>, and abbreviated
+    ## #   variable names ¹​account_num, ²​account_type
